@@ -98,7 +98,9 @@ void setup() {
         audio.setVolume(storage.config.varioVolume);
         kalman.setState(44330.0 * (1.0 - pow(baro.getPressure() / 1013.25, 0.190295)), 0);
 
-        xTaskCreatePinnedToCore(TaskAudio, "Audio", 4096, NULL, 10, NULL, 1);
+        // xTaskCreatePinnedToCore(TaskAudio, "Audio", 4096, NULL, 10, NULL, 1);
+        // Utilizziamo il core 0 per TaskAudio
+        xTaskCreatePinnedToCore(TaskAudio, "Audio", 4096, NULL, 10, NULL, 0);
     }
 }
 
@@ -288,13 +290,23 @@ void loopFlightMode() {
         lastLogUpdate = millis();
         bool shouldBeLogging = false;
 
+        // --- FILTRO DI SANITÀ MENTALE DEL GPS ---
+        // 1. Accettiamo il GPS solo se l'HDOP è ottimo (< 3.0) e ha almeno 6 satelliti
+        bool isGpsQualityGood = (gps.isFixed() && gps.getSatellites() >= 6 && gps.getHdop() < 3.0);
+        
+        // 2. Filtriamo "teletrasporti" spaziali: la velocità deve essere reale per un parapendio
+        // (tra 10 km/h per il decollo e max 120 km/h per evitare spike radio)
+        bool isSpeedPlausible = (gps.getSpeed() > 10.0 && gps.getSpeed() < 120.0); 
+
         // Caso A: Decollo Automatico
         if (storage.config.autoLog && !sdError) {
             if (!logger.isLogging()) {
-                if (gps.isFixed() && gps.getSatellites() >= 4 && (gps.getSpeed() > 10.0 || currentVsi > 1.5)) {
+                // Partenza SOLO con buon segnale e dinamiche di volo plausibili
+                if (isGpsQualityGood && (isSpeedPlausible || currentVsi > 1.5)) {
                     shouldBeLogging = true;
                 }
             } else {
+                // Rilevamento Atterraggio (Fermo da 45 secondi)
                 if (gps.getSpeed() < 5.0 && abs(currentVsi) < 0.5) {
                     landingTimer++;
                     if (landingTimer > 45) {
@@ -310,8 +322,9 @@ void loopFlightMode() {
             shouldBeLogging = true;
         }
 
-        // Esecuzione Logging
-        if (shouldBeLogging && !logger.isLogging() && gps.isFixed() && gps.getYear() > 2000) {
+        // Esecuzione Avvio Logging
+        // Modifica: non avvia la traccia finché non sa l'anno corretto e non ha un segnale limpido
+        if (shouldBeLogging && !logger.isLogging() && isGpsQualityGood && gps.getYear() > 2000) {
             logger.begin(&storage);
             bool success = logger.startNewTrack(
                 gps.getYear(), gps.getMonth(), gps.getDay(), 
@@ -328,9 +341,13 @@ void loopFlightMode() {
             }
         }
 
-        // Scrittura Punti Traccia (Sottraiamo l'offset per rispettare lo Standard IGC QNE)
+        // Scrittura Punti Traccia (Filtro finale)
         if (logger.isLogging()) {
-            logger.logPoint(gps.getHour(), gps.getMinute(), gps.getSecond(), gps.getLat(), gps.getLng(), (currentAlt - elevationOffset), gps.getAlt());
+            // Se in volo perdi brevemente il segnale (es. ingresso in nuvola profonda),
+            // non logghiamo il punto sporco, lasciamo un "buco" pulito nella traccia.
+            if (isGpsQualityGood) {
+                logger.logPoint(gps.getHour(), gps.getMinute(), gps.getSecond(), gps.getLat(), gps.getLng(), (currentAlt - elevationOffset), gps.getAlt());
+            }
         }
     }
 }
