@@ -1,0 +1,46 @@
+[env:esp32-s3-devkitm-1]
+platform = espressif32
+board = esp32-s3-devkitm-1
+framework = arduino
+monitor_speed = 115200
+upload_speed = 921600
+board_upload.flash_size = 16MB
+board_build.partitions = default_16MB.csv
+board_build.flash_mode = qio
+board_build.psram_type = qio
+board_build.arduino.memory_type = dio_opi
+build_flags = 
+              -D CORE_DEBUG_LEVEL=5
+              -D BOARD_HAS_PSRAM
+              -mfix-esp32-psram-cache-issue
+              -D ARDUINO_USB_MODE=1
+              -D ARDUINO_USB_CDC_ON_BOOT=1  
+
+
+; [env:esp32s3]
+; platform = espressif32
+; board = esp32-s3-devkitm-1
+; #board = esp32-s3-devkitc-1
+; framework = arduino
+
+
+; monitor_speed = 115200
+; ; Forza l'uso della PSRAM Quad SPI (R2)
+; board_build.arduino.memory_type = qio_qspi 
+; board_build.flash_mode = qio
+; board_build.psram_type = qio
+; board_upload.flash_size = 16MB
+
+; build_flags = 
+;     -DBOARD_HAS_PSRAM
+;     -mfix-esp32-psram-cache-issue
+;     -D CORE_DEBUG_LEVEL=3  ; Ti aiuta a vedere errori nel terminale
+;     -DARDUINO_USB_MODE=1
+;     -DARDUINO_USB_CDC_ON_BOOT=1
+
+lib_deps =
+    mikalhart/TinyGPSPlus @ ^1.0.3
+    robtillaart/MS5611 @ ^0.3.9
+    greiman/SdFat @ ^2.2.2
+    https://github.com/me-no-dev/ESPAsyncWebServer.git
+    https://github.com/me-no-dev/AsyncTCP.git
