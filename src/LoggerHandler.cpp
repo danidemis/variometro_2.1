@@ -65,11 +65,18 @@ void LoggerHandler::logPoint(uint8_t hour, uint8_t minute, uint8_t second, doubl
     
     sprintf(altStr, "A%05ld%05ld", bAlt, gAlt); // A = Fix GPS Valido
 
-    // Stringa finale per il punto traccia
     String bRecord = "B" + String(timeStr) + latStr + lngStr + String(altStr);
     
     _logFile.println(bRecord);
-    _logFile.flush(); // Assicura che i dati siano scritti e non persi se la scheda si spegne
+    
+    // Salviamo fisicamente il file sulla SD solo ogni 10 secondi (10 punti)
+    // Questo evita di stressare il controller della MicroSD e previene i blocchi
+    static int syncCounter = 0;
+    syncCounter++;
+    if (syncCounter >= 10) {
+        _logFile.flush();
+        syncCounter = 0;
+    }
 }
 
 void LoggerHandler::stopTrack() {
