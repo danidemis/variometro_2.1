@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <sys/time.h>
 #include "Config.h"
 #include "BaroHandler.h"
 #include "AudioHandler.h"
@@ -179,12 +180,27 @@ void loopFlightMode() {
     gps.update();
     compass.update();
     
-    // Notifica Sonora GPS (Suona solo la prima volta che prende i satelliti)
+    // Notifica Sonora GPS e Sincronizzazione Orologio
     if (gps.isFixed() && gps.getYear() > 2000) {
         if (!wasGpsFixed) {
             wasGpsFixed = true;
+            
+            // 1. Sincronizziamo l'orologio interno dell'ESP32 con l'orologio atomico del GPS!
+            struct tm t = {0};
+            t.tm_year = gps.getYear() - 1900;
+            t.tm_mon  = gps.getMonth() - 1;
+            t.tm_mday = gps.getDay();
+            t.tm_hour = gps.getHour();
+            t.tm_min  = gps.getMinute();
+            t.tm_sec  = gps.getSecond();
+            
+            time_t timeSinceEpoch = mktime(&t);
+            struct timeval now = { .tv_sec = timeSinceEpoch, .tv_usec = 0 };
+            settimeofday(&now, NULL); // Imposta l'ora del sistema
+            
+            // 2. Facciamo suonare il Jingle
             audio.playGpsFixJingle();
-            Serial.println(">>> GPS FIX OK! Pronto al decollo. <<<");
+            Serial.println(">>> GPS FIX OK! Orologio di sistema sincronizzato. Pronto al decollo. <<<");
         }
     } else {
         wasGpsFixed = false;
