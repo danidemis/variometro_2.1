@@ -1,0 +1,14 @@
+{
+  "name": "Il Mio Variometro ESP32-S3",
+  "version": "1.0.0",
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        { "path": ".pio/build/esp32s3/bootloader.bin", "offset": 0 },
+        { "path": ".pio/build/esp32s3/partitions.bin", "offset": 32768 },
+        { "path": ".pio/build/esp32s3/firmware.bin", "offset": 65536 }
+      ]
+    }
+  ]
+}
